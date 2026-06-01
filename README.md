@@ -1,13 +1,13 @@
-# Day 6 — Semantic Segmentation as a ROS2 Node
+# Day 6 - Semantic Segmentation as a ROS2 Node
 
 > **Series 1: Perception | Project 6 of 12**
-> MS Robotics & Autonomous Systems Engineering — Arizona State University — Dec 2026
+> MS Robotics & Autonomous Systems Engineering - Arizona State University - Dec 2026
 
 ---
 
 ## What This Project Does
 
-Days 1–5 put **boxes** around objects. Boxes work for cars and people.
+Days 1-5 put **boxes** around objects. Boxes work for cars and people.
 But you cannot put a box around **road**. You cannot box **sky** or **driveable space**.
 
 Those are not objects. They are the **scene itself**.
@@ -25,21 +25,21 @@ Raw camera image  →  DeepLabV3 on RTX 4050  →  Per-pixel labels  →  ROS2 t
 
 | Result | Link |
 |--------|------|
-| Segmentation Frame 0001 — Germany road | [View](https://drive.google.com/file/d/1fZ5yL9L-_kj68j8Iq2-6GZ7ZyMjJwOj5/view?usp=drive_link) |
-| Segmentation Frame 0005 — Multiple cars | [View](https://drive.google.com/file/d/1VEoxWGkoKdj86UHfHSIXhiBYd47fA7fL/view?usp=drive_link) |
-| Segmentation Frame 0010 — Car + tram | [View](https://drive.google.com/file/d/1OIHWZ5WzelV8fVbY0Cwe2sLo9xjbeaZJ/view?usp=drive_link) |
-| Benchmark — FPS across 9 frames | [View](https://drive.google.com/file/d/15EpoTAyKq0ee-sKRnsBlXhGYaco3HI6n/view?usp=drive_link) |
-| Evaluation — FPS vs resolution + classes | [View](https://drive.google.com/file/d/1JIVMbQlau73d0mnzJ4JKTmMxhqefpcPY/view?usp=drive_link) |
+| Segmentation Frame 0001 - Germany road | [View](https://drive.google.com/file/d/1fZ5yL9L-_kj68j8Iq2-6GZ7ZyMjJwOj5/view?usp=drive_link) |
+| Segmentation Frame 0005 - Multiple cars | [View](https://drive.google.com/file/d/1VEoxWGkoKdj86UHfHSIXhiBYd47fA7fL/view?usp=drive_link) |
+| Segmentation Frame 0010 - Car + tram | [View](https://drive.google.com/file/d/1OIHWZ5WzelV8fVbY0Cwe2sLo9xjbeaZJ/view?usp=drive_link) |
+| Benchmark - FPS across 9 frames | [View](https://drive.google.com/file/d/15EpoTAyKq0ee-sKRnsBlXhGYaco3HI6n/view?usp=drive_link) |
+| Evaluation - FPS vs resolution + classes | [View](https://drive.google.com/file/d/1JIVMbQlau73d0mnzJ4JKTmMxhqefpcPY/view?usp=drive_link) |
 
 ---
 
-## Benchmark — NVIDIA RTX 4050 GPU
+## Benchmark - NVIDIA RTX 4050 GPU
 
 | Metric | Value |
 |--------|-------|
 | GPU | NVIDIA GeForce RTX 4050 Laptop GPU |
 | VRAM | 6.0 GB |
-| CUDA | 13.0 — PyTorch 2.6.0+cu124 |
+| CUDA | 13.0 - PyTorch 2.6.0+cu124 |
 | Avg FPS (stable) | **52.6 FPS** |
 | Max FPS | **79.6 FPS** |
 | Avg latency | **17ms per frame** |
@@ -62,25 +62,25 @@ Every resolution exceeds the 30 FPS real-time threshold on RTX 4050.
 
 ---
 
-## Class Detection — Real KITTI Germany Road
+## Class Detection - Real KITTI Germany Road
 
 | Class | Detection Rate | Avg Pixel Coverage |
 |-------|---------------|-------------------|
-| car | 9 / 9 frames — **100%** | 2.7% |
-| train / tram | 8 / 9 frames — 89% | 0.1% |
-| person | 3 / 9 frames — 33% | 0.1% |
-| bus | 1 / 9 frames — 11% | 0.1% |
-| bicycle | 1 / 9 frames — 11% | 0.1% |
-| background | 9 / 9 frames — 100% | 96.5% |
+| car | 9 / 9 frames - **100%** | 2.7% |
+| train / tram | 8 / 9 frames - 89% | 0.1% |
+| person | 3 / 9 frames - 33% | 0.1% |
+| bus | 1 / 9 frames - 11% | 0.1% |
+| bicycle | 1 / 9 frames - 11% | 0.1% |
+| background | 9 / 9 frames - 100% | 96.5% |
 
 > The tram running alongside the German road is correctly classified as **train**.
-> Background (96.5%) includes road surface, sky, trees, and buildings —
+> Background (96.5%) includes road surface, sky, trees, and buildings -
 > COCO does not separate these into road-specific classes.
 > A Cityscapes fine-tuned model would label each separately with the same architecture.
 
 ---
 
-## Architecture — DeepLabV3 + MobileNetV3
+## Architecture - DeepLabV3 + MobileNetV3
 
 ```
 INPUT  (1242 × 375 × 3)
@@ -92,7 +92,7 @@ MobileNetV3 Encoder
    │
    ▼
 Atrous (Dilated) Convolutions
-   Larger receptive field — no resolution loss
+   Larger receptive field - no resolution loss
    Context: pixels surrounded by road = road
    │
    ▼
@@ -111,20 +111,20 @@ OUTPUT  (1242 × 375 × 21)
 | Parameters | 11,029,328 |
 | Pretrained on | COCO dataset (330k images, 80 classes) |
 | Classes used | 21 |
-| Training required | None — weights loaded directly |
+| Training required | None - weights loaded directly |
 
 ---
 
 ## ROS2 Node Architecture
 
 ```
-┌─────────────────┐     /camera/image_raw      ┌──────────────────────┐
-│   Camera Node   │ ──────────────────────────► │  segmentation_node   │
-└─────────────────┘                             │                      │
-                                                │  DeepLabV3 on GPU    │
-                          /segmentation/mask    │  52.6 FPS avg        │
-┌─────────────────┐ ◄─── /segmentation/labels ─│  17ms latency        │
-│ Navigation Node │      /segmentation/stats    └──────────────────────┘
+┌─────────────────┐     /camera/image_raw       ┌─────────────────────┐
+│   Camera Node   │ ──────────────────────────► │  segmentation_node  │
+└─────────────────┘                             │                     │
+                                                │  DeepLabV3 on GPU   │
+                          /segmentation/mask    │  52.6 FPS avg       │
+┌─────────────────┐ ◄─── /segmentation/labels ─ │  17ms latency       │
+│ Navigation Node │      /segmentation/stats    └─────────────────────┘
 └─────────────────┘
 ```
 
@@ -139,29 +139,28 @@ To deploy on a real robot:
 ```bash
 # 1. Install ROS2 Humble on Ubuntu 22.04
 # 2. Replace SimulatedNode with rclpy.node.Node
-# 3. Launch:
-ros2 run day006 segmentation_node
+# 3. Launch: ros2 run day006 segmentation_node
 ```
 
 ---
 
 ## Key Engineering Findings
 
-**Finding 1 — GPU warmup is real and must be accounted for**
+**Finding 1 - GPU warmup is real and must be accounted for**
 
-Frame 1 runs at 4.5 FPS (220ms). Frame 2 onwards runs at 33–79 FPS.
+Frame 1 runs at 4.5 FPS (220ms). Frame 2 onwards runs at 33-79 FPS.
 The first inference triggers CUDA JIT kernel compilation.
 Production systems always run a warmup pass on startup.
 I measured and reported it explicitly rather than hiding it.
 
-**Finding 2 — FPS scales predictably with resolution**
+**Finding 2 - FPS scales predictably with resolution**
 
 Halving resolution (1242→621) gives ~2× FPS gain despite 4× fewer pixels.
 GPU operations have fixed overhead per call regardless of image size.
 For a system running 8 cameras simultaneously, resolution selection
 directly determines whether the full stack meets its latency budget.
 
-**Finding 3 — Node architecture determines real-world value**
+**Finding 3 - Node architecture determines real-world value**
 
 Running a model standalone is a tutorial.
 Running it as a subscriber-publisher node that integrates
@@ -175,9 +174,9 @@ has real-time segmentation on `/segmentation/mask`.
 
 | Company | Use of Segmentation |
 |---------|-------------------|
-| **Waymo** | Driveable surface identification — planner only enters road pixels |
-| **Tesla FSD** | Lane marking detection — cameras provide dense pixel data |
-| **Boston Dynamics** | Terrain classification per footstep — grass, concrete, void |
+| **Waymo** | Driveable surface identification - planner only enters road pixels |
+| **Tesla FSD** | Lane marking detection - cameras provide dense pixel data |
+| **Boston Dynamics** | Terrain classification per footstep - grass, concrete, void |
 | **Amazon Robotics** | Floor/obstacle separation for warehouse navigation |
 
 The fundamental shift: detection answers *"what objects are here?"*
@@ -207,7 +206,7 @@ They only appear when you build an actual pipeline.
 **Atrous convolutions** were the key architectural insight.
 Standard convolutions have a fixed receptive field.
 Dilated convolutions look at a wider area without adding parameters.
-This is what gives DeepLabV3 context-awareness —
+This is what gives DeepLabV3 context-awareness -
 a pixel surrounded by road pixels gets labeled road.
 That spatial reasoning is the foundation of scene understanding.
 
@@ -262,7 +261,7 @@ day-006-semantic-segmentation/
 
 ---
 
-## Series 1 — Perception Progress
+## Series 1 - Perception Progress
 
 | # | Project | Status |
 |---|---------|--------|
